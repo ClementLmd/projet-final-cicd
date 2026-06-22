@@ -46,7 +46,10 @@ services:
       - taskflow_net
 
   jenkins:
-    image: jenkins/jenkins:lts-jdk17
+    build:
+      context: ./jenkins
+      dockerfile: Dockerfile
+    image: taskflow-jenkins:lts-jdk17
     container_name: taskflow-jenkins
     restart: unless-stopped
     user: root
