@@ -73,18 +73,88 @@ projet-final-cicd/
 | Tâche                         | Dev 1 | Dev 2 |
 |-------------------------------|:-----:|:-----:|
 | Application Express + routes  | ✅    |       |
-| Tests Jest + ESLint           | ✅    |       |
-| Dockerfile + Compose + Nginx  |       | ✅    |
-| Jenkinsfile + webhook         |       | ✅    |
+| Modèle Task + connexion Mongo | ✅    |       |
+| Tests Jest (mongodb-memory)   | ✅    |       |
+| Configuration ESLint          | ✅    |       |
+| Dockerfile multi-stage        |       | ✅    |
+| nginx.conf (reverse proxy)    |       | ✅    |
+| docker-compose.yml            |       | ✅    |
+| Service Jenkins dans Compose  |       | ✅    |
+| Jenkinsfile (6 stages + post) |       | ✅    |
+| Webhook GitHub                |       | ✅    |
+| README                        | ✅    | ✅    |
 
 ## Architecture du pipeline
 
 ```
-Checkout → Install → Lint → Test → Build Docker → Deploy
+┌──────────┐   ┌─────────┐   ┌──────┐   ┌──────┐   ┌──────────────┐   ┌─────────┐
+│ Checkout │ → │ Install │ → │ Lint │ → │ Test │ → │ Build Docker │ → │ Deploy  │
+│   (scm)  │   │ npm ci  │   │ npm  │   │ npm  │   │  :latest +   │   │ docker  │
+│          │   │         │   │ run  │   │ test │   │  :build-N    │   │ compose │
+│          │   │         │   │ lint │   │      │   │              │   │  up -d  │
+└──────────┘   └─────────┘   └──────┘   └──────┘   └──────────────┘   └─────────┘
+                  └────────── node:18-alpine ──────────┘
 ```
 
-_(Schéma détaillé à compléter par Dev 2)_
+Les stages `Install`, `Lint` et `Test` s'exécutent dans un conteneur
+`node:18-alpine` (via `agent { docker { ... reuseNode true } }`), ce qui évite
+d'avoir à installer Node.js dans le conteneur Jenkins lui-même.
+Les stages `Build Docker` et `Deploy` utilisent le `docker.sock` monté dans le
+conteneur Jenkins. Le `Deploy` relance uniquement `api`, `mongodb` et `nginx`
+— jamais Jenkins, sous peine de se tuer lui-même en plein build.
+
+## Mise en place de Jenkins
+
+### 1. Démarrer Jenkins avec le reste de la stack
+
+```bash
+docker compose up -d jenkins
+docker compose logs -f jenkins   # repérer le mot de passe initial
+```
+
+Le mot de passe initial s'affiche dans les logs, encadré par des `*****`, ou
+peut être récupéré via :
+
+```bash
+docker compose exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+```
+
+Ouvrir [http://localhost:8080](http://localhost:8080) puis suivre l'assistant.
+
+### 2. Plugins à installer
+
+Au moment du choix initial, cocher « Install suggested plugins », puis vérifier
+que les plugins suivants sont bien présents (sinon les ajouter manuellement) :
+
+- **Git** — récupération du code depuis GitHub
+- **Pipeline** — exécution de pipelines déclaratifs
+- **Docker Pipeline** — pour `docker.build`, `docker.image(...).inside { ... }`
+
+### 3. Créer le job pipeline
+
+1. Dashboard → **New Item** → **Pipeline** → nom : `taskflow-api`.
+2. Section *Build Triggers* : cocher **GitHub hook trigger for GITScm polling**.
+3. Section *Pipeline* :
+   - Definition : **Pipeline script from SCM**
+   - SCM : **Git**
+   - Repository URL : URL HTTPS du repo GitHub
+   - Branch : `*/main`
+   - Script Path : `Jenkinsfile`
+4. **Save** puis **Build Now** pour vérifier que les 6 stages passent au vert.
+
+### 4. Webhook GitHub
+
+Sur le repo GitHub :
+
+1. *Settings* → *Webhooks* → *Add webhook*
+2. Payload URL : `http://<host-jenkins>:8080/github-webhook/`
+3. Content type : `application/json`
+4. Event : *Just the push event*
+5. Active : ✅
+
+> En local, exposer Jenkins via [ngrok](https://ngrok.com/) ou équivalent si
+> GitHub doit pouvoir l'appeler depuis Internet.
 
 ## Licence
 
-MIT
+MIT.
