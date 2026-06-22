@@ -101,10 +101,7 @@ pipeline {
             echo "✅ Build #${BUILD_NUMBER} réussi — TaskFlow API disponible sur ${APP_URL}"
         }
         failure {
-            script {
-                def failedStage = currentBuild.rawBuild?.getExecution()?.getCurrentHeads()?.collect { it.displayName }?.join(', ') ?: 'inconnu'
-                echo "❌ Build #${BUILD_NUMBER} en échec (stage: ${failedStage}). Voir la console Jenkins."
-            }
+            echo "❌ Build #${BUILD_NUMBER} en échec. Stage fautif visible dans la Stage View et la console Jenkins."
         }
     }
 }
