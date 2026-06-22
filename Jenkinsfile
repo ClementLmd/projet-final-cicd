@@ -77,8 +77,10 @@ pipeline {
         stage('Deploy') {
             steps {
                 // On relance UNIQUEMENT l'app, surtout pas le service jenkins
-                // (sinon Jenkins se tuerait lui-même en plein build)
-                sh 'docker compose -f ${COMPOSE_FILE} up -d --no-deps api mongodb nginx'
+                // (sinon Jenkins se tuerait lui-meme en plein build).
+                // --build est necessaire pour reconstruire l'image nginx
+                // custom (qui embarque la conf reverse proxy) a chaque deploy.
+                sh 'docker compose -f ${COMPOSE_FILE} up -d --build --no-deps api mongodb nginx'
                 sh 'docker compose -f ${COMPOSE_FILE} ps'
             }
         }
