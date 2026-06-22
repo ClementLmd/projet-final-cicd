@@ -157,4 +157,4 @@ Sur le repo GitHub :
 
 ## Licence
 
-MIT
+MIT.
