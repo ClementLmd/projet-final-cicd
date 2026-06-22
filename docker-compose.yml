@@ -45,10 +45,29 @@ services:
     networks:
       - taskflow_net
 
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    container_name: taskflow-jenkins
+    restart: unless-stopped
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${WORKSPACE_HOST_PATH:-./}:/workspace
+    environment:
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=true"
+    networks:
+      - taskflow_net
+
 networks:
   taskflow_net:
     driver: bridge
 
 volumes:
   mongodb_data:
+    driver: local
+  jenkins_home:
     driver: local
